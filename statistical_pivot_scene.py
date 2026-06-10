@@ -94,29 +94,58 @@ class StatisticalPivotScene(MovingCameraScene):
             outlier_dot, DR, buff=0.15
         )
 
-        # 4. Regression Lines and Labels
-        # Model 1 (With Outlier): y = 2.079 * x - 0.474
-        line_1 = axes.plot(
-            lambda x: 2.079 * x - 0.474,
-            x_range=[-0.5, 7.5],
-            color="#00FFFF",  # Electric Cyan
-            stroke_width=5
-        )
+        # 4. Dynamic Regression Setup
+        color_1 = ManimColor("#00FFFF")  # Electric Cyan
+        color_2 = ManimColor("#FFBF00")  # Electric Amber/Gold
         
-        line_1_label = Text("Initial OLS (Slope = +2.08)", font_size=14, color="#00FFFF").next_to(
-            axes.c2p(4, 2.079 * 4 - 0.474), UP + LEFT, buff=0.15
+        pivot_tracker = ValueTracker(0.0)
+        
+        # Regression function interpolator
+        def get_regression_y(x, val):
+            # Model 1: y = 2.079 * x - 0.474
+            # Model 2: y = -0.421 * x + 2.026
+            return (1 - val) * (2.079 * x - 0.474) + val * (-0.421 * x + 2.026)
+
+        # Dynamic regression line
+        regression_line = always_redraw(
+            lambda: axes.plot(
+                lambda x: get_regression_y(x, pivot_tracker.get_value()),
+                x_range=[-0.5, 7.5],
+                color=interpolate_color(color_1, color_2, pivot_tracker.get_value()),
+                stroke_width=5
+            )
         )
 
-        # Model 2 (Corrected): y = -0.421 * x + 2.026
-        line_2 = axes.plot(
-            lambda x: -0.421 * x + 2.026,
-            x_range=[-0.5, 7.5],
-            color="#FFBF00",  # Electric Amber/Gold
-            stroke_width=5
+        # Dynamic residual lines for the base dots
+        residual_lines = always_redraw(
+            lambda: VGroup(*[
+                DashedLine(
+                    start=axes.c2p(x, y),
+                    end=axes.c2p(x, get_regression_y(x, pivot_tracker.get_value())),
+                    color=GREY,
+                    stroke_width=2,
+                    stroke_opacity=0.5
+                ) for x, y in base_coords
+            ])
         )
-        
-        line_2_label = Text("Corrected OLS (Slope = -0.42)", font_size=14, color="#FFBF00").next_to(
-            axes.c2p(1.5, -0.421 * 1.5 + 2.026), UP + RIGHT, buff=0.2
+
+        # Dynamic residual line for the outlier
+        outlier_residual = always_redraw(
+            lambda: DashedLine(
+                start=axes.c2p(*outlier_coords),
+                end=axes.c2p(outlier_coords[0], get_regression_y(outlier_coords[0], pivot_tracker.get_value())),
+                color=neon_crimson,
+                stroke_width=2,
+                stroke_opacity=0.5 * (1 - pivot_tracker.get_value())
+            )
+        )
+
+        # Labels for the regression models (positioned at x = 1.5 for visibility inside the zoomed-in frame)
+        line_1_label = Text("Initial OLS (Slope = +2.08)", font_size=12, color=color_1).next_to(
+            axes.c2p(1.5, 2.64), UP + RIGHT, buff=0.15
+        )
+        line_2_label = Text("Corrected OLS (Slope = -0.42)", font_size=12, color=color_2).next_to(
+            axes.c2p(1.5, 1.39), UP + RIGHT, buff=0.15
         )
 
         # Titles for the graphs
@@ -128,17 +157,41 @@ class StatisticalPivotScene(MovingCameraScene):
         title_1.scale_to_fit_width(12)
         title_1.to_edge(UP, buff=0.15)
 
-        title_2 = Text(
-            "Frequency of a place mentioned as coolest on campus vs its frequency mentioned as windiest on campus(nonoutlier)",
-            font_size=16,
+        title_zoomed_1 = Text(
+            "Zoomed View: Coolest vs Windiest",
+            font_size=12,
             color=WHITE
-        )
-        title_2.scale_to_fit_width(12)
-        title_2.to_edge(UP, buff=0.15)
+        ).move_to(axes.c2p(1.5, 6.3))
 
-        # R² Correlation Value Labels
-        r2_label_1 = Text("R² = 0.705", font_size=20, color="#00FFFF").next_to(axes, UP, buff=0.15)
-        r2_label_2 = Text("R² = 0.281", font_size=20, color="#FFBF00").next_to(axes, UP, buff=0.15)
+        title_zoomed_2 = Text(
+            "Zoomed View: Coolest vs Windiest (Outlier Removed)",
+            font_size=12,
+            color=WHITE
+        ).move_to(axes.c2p(1.5, 6.3))
+
+        # Dynamic R² label that transitions value and font size
+        r2_pos = VectorizedPoint(axes.get_top() + UP * 0.25)
+        
+        def get_r2_text():
+            val = pivot_tracker.get_value()
+            y_curr = r2_pos.get_center()[1]
+            y_init = (axes.get_top() + UP * 0.25)[1]
+            y_final = axes.c2p(0, 4.8)[1]
+            
+            # Interpolate font size from 20 down to 14 as it moves
+            if y_init - y_final != 0:
+                alpha = max(0.0, min(1.0, (y_init - y_curr) / (y_init - y_final)))
+            else:
+                alpha = 0.0
+            fs = 20 - 6 * alpha
+            
+            return Text(
+                f"R² = {(1 - val) * 0.705 + val * 0.281:.3f}",
+                font_size=fs,
+                color=interpolate_color(color_1, color_2, val)
+            ).move_to(r2_pos.get_center())
+            
+        r2_text = always_redraw(get_r2_text)
 
         # --- ANIMATION CHOREOGRAPHY ---
 
@@ -168,49 +221,52 @@ class StatisticalPivotScene(MovingCameraScene):
         )
         self.wait(0.8)
 
-        # Phase 4: Initial positive trendline sweeps on-screen
-        self.play(Create(line_1), run_time=1.5)
-        self.play(FadeIn(line_1_label), FadeIn(r2_label_1), run_time=0.5)
+        # Phase 3.5: Show initial regression line, R² label, and residuals
+        self.play(
+            FadeIn(regression_line),
+            FadeIn(line_1_label),
+            FadeIn(r2_text),
+            run_time=1.5
+        )
+        self.play(
+            FadeIn(residual_lines),
+            FadeIn(outlier_residual),
+            run_time=0.8
+        )
         self.wait(2.0)  # Hold to establish initial equilibrium
 
-        # Phase 5: Systemic Pivot (Simultaneous Outlier Removal & Trendline Transform)
+        # Phase 4: Smooth Camera Zoom-in
+        self.play(
+            self.camera.frame.animate.move_to(axes.c2p(1.5, 1.5)).set(width=6.0),
+            r2_pos.animate.move_to(axes.c2p(1.5, 4.8)),
+            x_label.animate.scale(0.65).move_to(axes.c2p(1.5, -1.1)),
+            y_label.animate.scale(0.65).move_to(axes.c2p(-0.7, 1.5)),
+            ReplacementTransform(title_1, title_zoomed_1),
+            run_time=2.5
+        )
+        self.wait(1.0)
+
+        # Phase 5: Systemic Pivot (inside the zoomed frame)
         self.play(
             FadeOut(outlier_dot),
             FadeOut(halo),
             FadeOut(outlier_label),
-            ReplacementTransform(line_1, line_2),
+            pivot_tracker.animate.set_value(1.0),
             ReplacementTransform(line_1_label, line_2_label),
-            ReplacementTransform(r2_label_1, r2_label_2),
-            ReplacementTransform(title_1, title_2),
+            ReplacementTransform(title_zoomed_1, title_zoomed_2),
             run_time=3.0
         )
-        self.wait(1.0)  # Short hold on corrected model
-
-        # Phase 5.5: Camera Zoom-in
-        self.play(
-            self.camera.frame.animate.move_to(axes.c2p(1.5, 1.5)).set(width=6.0),
-            FadeOut(x_label),
-            FadeOut(y_label),
-            FadeOut(r2_label_2),
-            FadeOut(title_2),
-            run_time=2.5
-        )
-        self.wait(0.5)
-
-        # Phase 5.6: Show R² value above the zoomed-in dots
-        r2_label_zoomed = Text("R² = 0.281", font_size=16, color="#FFBF00").move_to(
-            axes.c2p(1.5, 4.0)
-        )
-        self.play(FadeIn(r2_label_zoomed), run_time=0.8)
-        self.wait(1.5)
+        self.wait(2.0)
 
         # Phase 6: Outro (Fade out to black)
         self.play(
             FadeOut(axes),
             FadeOut(base_dots),
-            FadeOut(line_2),
+            FadeOut(regression_line),
+            FadeOut(residual_lines),
             FadeOut(line_2_label),
-            FadeOut(r2_label_zoomed),
+            FadeOut(r2_text),
+            FadeOut(title_zoomed_2),
             run_time=1.5
         )
         self.wait(0.5)
