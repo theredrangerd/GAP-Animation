@@ -116,35 +116,13 @@ class StatisticalPivotScene(MovingCameraScene):
             )
         )
 
-        # Dynamic residual lines for the base dots
-        residual_lines = always_redraw(
-            lambda: VGroup(*[
-                DashedLine(
-                    start=axes.c2p(x, y),
-                    end=axes.c2p(x, get_regression_y(x, pivot_tracker.get_value())),
-                    color=GREY,
-                    stroke_width=2,
-                    stroke_opacity=0.5
-                ) for x, y in base_coords
-            ])
-        )
 
-        # Dynamic residual line for the outlier
-        outlier_residual = always_redraw(
-            lambda: DashedLine(
-                start=axes.c2p(*outlier_coords),
-                end=axes.c2p(outlier_coords[0], get_regression_y(outlier_coords[0], pivot_tracker.get_value())),
-                color=neon_crimson,
-                stroke_width=2,
-                stroke_opacity=0.5 * (1 - pivot_tracker.get_value())
-            )
-        )
 
         # Labels for the regression models (positioned at x = 1.5 for visibility inside the zoomed-in frame)
-        line_1_label = Text("Initial OLS (Slope = +2.08)", font_size=12, color=color_1).next_to(
+        line_1_label = Text("Slope = +2.08", font_size=12, color=color_1).next_to(
             axes.c2p(1.5, 2.64), UP + RIGHT, buff=0.15
         )
-        line_2_label = Text("Corrected OLS (Slope = -0.42)", font_size=12, color=color_2).next_to(
+        line_2_label = Text("Slope = -0.42", font_size=12, color=color_2).next_to(
             axes.c2p(1.5, 1.39), UP + RIGHT, buff=0.15
         )
 
@@ -221,17 +199,12 @@ class StatisticalPivotScene(MovingCameraScene):
         )
         self.wait(0.8)
 
-        # Phase 3.5: Show initial regression line, R² label, and residuals
+        # Phase 3.5: Show initial regression line and R² label
         self.play(
             FadeIn(regression_line),
             FadeIn(line_1_label),
             FadeIn(r2_text),
             run_time=1.5
-        )
-        self.play(
-            FadeIn(residual_lines),
-            FadeIn(outlier_residual),
-            run_time=0.8
         )
         self.wait(2.0)  # Hold to establish initial equilibrium
 
@@ -263,7 +236,6 @@ class StatisticalPivotScene(MovingCameraScene):
             FadeOut(axes),
             FadeOut(base_dots),
             FadeOut(regression_line),
-            FadeOut(residual_lines),
             FadeOut(line_2_label),
             FadeOut(r2_text),
             FadeOut(title_zoomed_2),
