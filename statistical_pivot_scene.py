@@ -77,9 +77,9 @@ class StatisticalPivotScene(MovingCameraScene):
         
         outlier_dot = Dot(
             point=axes.c2p(*outlier_coords),
-            color=neon_crimson,
-            radius=0.12,
-            fill_opacity=1.0
+            color=cream_color,
+            radius=0.08,
+            fill_opacity=0.9
         )
         
         # Pulsing halo glow around the outlier
@@ -90,7 +90,10 @@ class StatisticalPivotScene(MovingCameraScene):
             fill_opacity=0.25
         )
         
-        outlier_label = Text("Tent Plaza\n(Outlier)", font_size=14, color=neon_crimson).next_to(
+        outlier_label = Text("Tent Plaza", font_size=14, color=WHITE).next_to(
+            outlier_dot, DR, buff=0.15
+        )
+        outlier_label_new = Text("Tent Plaza\n(Outlier)", font_size=14, color=neon_crimson).next_to(
             outlier_dot, DR, buff=0.15
         )
 
@@ -120,7 +123,7 @@ class StatisticalPivotScene(MovingCameraScene):
 
         # Labels for the regression models (positioned at x = 1.5 for visibility inside the zoomed-in frame)
         line_1_label = Text("Slope = +2.08", font_size=12, color=color_1).next_to(
-            axes.c2p(1.5, 2.64), UP + RIGHT, buff=0.15
+            axes.c2p(1.5, 2.64), UP + LEFT, buff=0.15
         )
         line_2_label = Text("Slope = -0.42", font_size=12, color=color_2).next_to(
             axes.c2p(1.5, 1.39), UP + RIGHT, buff=0.15
@@ -178,17 +181,25 @@ class StatisticalPivotScene(MovingCameraScene):
         self.play(FadeIn(x_label), FadeIn(y_label), FadeIn(title_1), run_time=0.5)
         self.wait(0.5)
 
-        # Phase 2: Data points scale into existence
+        # Phase 2: Data points scale into existence (including Tent Plaza as a normal dot)
+        all_initial_dots = VGroup(*base_dots, outlier_dot)
         self.play(
             AnimationGroup(*[
-                GrowFromCenter(dot) for dot in base_dots
+                GrowFromCenter(dot) for dot in all_initial_dots
             ], lag_ratio=0.1),
             run_time=1.5
         )
-        self.wait(0.5)
+        self.play(FadeIn(outlier_label), run_time=0.5)
+        self.wait(1.0)  # Wait for a second as a normal white/cream dot
 
-        # Phase 3: Outlier and label appear
-        self.play(GrowFromCenter(outlier_dot), FadeIn(outlier_label), run_time=0.8)
+        # Phase 3: Tent Plaza transitions to red outlier state and label updates
+        self.play(
+            outlier_dot.animate.set_color(neon_crimson).set_radius(0.12).set_opacity(1.0),
+            ReplacementTransform(outlier_label, outlier_label_new),
+            run_time=0.8
+        )
+        outlier_label = outlier_label_new  # Reassign reference for later FadeOut
+        
         self.play(FadeIn(halo), run_time=0.4)
         
         # Halo pulsing effect
