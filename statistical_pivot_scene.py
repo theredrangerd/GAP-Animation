@@ -69,7 +69,7 @@ class StatisticalPivotScene(MovingCameraScene):
                 fill_opacity=0.9
             )
             for x, y in base_coords
-        ])
+        ]).set_z_index(3)
 
         # Outlier (Tent Plaza) setup
         outlier_coords = (6, 17)
@@ -80,7 +80,7 @@ class StatisticalPivotScene(MovingCameraScene):
             color=cream_color,
             radius=0.08,
             fill_opacity=0.9
-        )
+        ).set_z_index(3)
         
         # Pulsing halo glow around the outlier
         halo = Dot(
@@ -116,7 +116,7 @@ class StatisticalPivotScene(MovingCameraScene):
                 x_range=[-0.5, 7.5],
                 color=interpolate_color(color_1, color_2, pivot_tracker.get_value()),
                 stroke_width=5
-            )
+            ).set_z_index(2)
         )
 
 
@@ -250,6 +250,8 @@ class StatisticalPivotScene(MovingCameraScene):
             FadeOut(line_2_label),
             FadeOut(r2_text),
             FadeOut(title_zoomed_2),
+            FadeOut(x_label),
+            FadeOut(y_label),
             run_time=1.5
         )
         self.wait(0.5)
